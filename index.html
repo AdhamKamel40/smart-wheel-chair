@@ -1,0 +1,537 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Smart Wheelchair</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+            text-align: center;
+        }
+
+        header {
+            background: #021526;
+            color: white;
+            padding: 20px;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        /* CAMERA */
+
+        .camera-box {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        .camera-box h2 {
+            margin-top: 0;
+        }
+
+        #camera {
+            width: 100%;
+            max-width: 640px;
+            border-radius: 10px;
+            background: #111;
+        }
+
+        #cameraStatus {
+            margin-top: 10px;
+            color: #666;
+        }
+
+        /* STATUS */
+
+        .status {
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        #firebaseStatus {
+            font-weight: bold;
+        }
+
+        #command {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* CONTROLS */
+
+        .controls {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        button {
+            width: 110px;
+            height: 70px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #021526;
+            color: white;
+            transition: 0.15s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .stop {
+            background: #c62828;
+        }
+
+        .help {
+            margin-top: 20px;
+            color: #666;
+        }
+
+        @media (max-width: 600px) {
+
+            button {
+                width: 85px;
+                height: 60px;
+                font-size: 15px;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🚗 Smart Wheelchair</h1>
+    <p>ESP32-CAM Control Panel</p>
+</header>
+
+<div class="container">
+
+    <!-- CAMERA -->
+
+    <div class="camera-box">
+
+        <h2>📷 Live Camera</h2>
+
+        <img
+            id="camera"
+            src=""
+            alt="ESP32-CAM"
+        >
+
+        <div id="cameraStatus">
+            Connecting to camera...
+        </div>
+
+    </div>
+
+
+    <!-- STATUS -->
+
+    <div class="status">
+
+        <div>
+            Firebase:
+            <span id="firebaseStatus">
+                Connecting...
+            </span>
+        </div>
+
+        <div style="margin-top:10px;">
+            Command:
+            <span id="command">
+                STOP
+            </span>
+        </div>
+
+    </div>
+
+
+    <!-- CONTROLS -->
+
+    <div class="controls">
+
+        <h2>🎮 Controls</h2>
+
+        <div class="row">
+
+            <button
+                onmousedown="sendCommand('forward')"
+                ontouchstart="sendCommand('forward')"
+            >
+                ⬆️<br>
+                Forward
+            </button>
+
+        </div>
+
+
+        <div class="row">
+
+            <button
+                onmousedown="sendCommand('left')"
+                ontouchstart="sendCommand('left')"
+            >
+                ⬅️<br>
+                Left
+            </button>
+
+
+            <button
+                class="stop"
+                onclick="sendCommand('stop')"
+            >
+                🛑<br>
+                Stop
+            </button>
+
+
+            <button
+                onmousedown="sendCommand('right')"
+                ontouchstart="sendCommand('right')"
+            >
+                ➡️<br>
+                Right
+            </button>
+
+        </div>
+
+
+        <div class="row">
+
+            <button
+                onmousedown="sendCommand('backward')"
+                ontouchstart="sendCommand('backward')"
+            >
+                ⬇️<br>
+                Backward
+            </button>
+
+        </div>
+
+
+        <div class="help">
+            Keyboard:
+            <b>W A S D</b>
+            or
+            <b>Arrow Keys</b>
+            <br>
+            Press <b>Space</b> to stop.
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- FIREBASE -->
+
+<script type="module">
+
+    import {
+        initializeApp
+    } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+
+
+    import {
+        getDatabase,
+        ref,
+        set,
+        onValue
+    } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+
+
+    // =================================================
+    // FIREBASE CONFIG
+    // =================================================
+
+    const firebaseConfig = {
+
+        apiKey:
+            "AIzaSyByUAkYW9OTw3FV9n-RUVqoAVqcERg22Xc",
+
+        authDomain:
+            "tariqy3-e305f.firebaseapp.com",
+
+        databaseURL:
+            "https://tariqy3-e305f-default-rtdb.firebaseio.com/",
+
+        projectId:
+            "tariqy3-e305f",
+
+        storageBucket:
+            "tariqy3-e305f.firebasestorage.app",
+
+        messagingSenderId:
+            "889181500112",
+
+        appId:
+            "1:889181500112:web:5b043976d67f56772aa4d5",
+
+        measurementId:
+            "G-83EPKLQ9GQ"
+    };
+
+
+    // =================================================
+    // START FIREBASE
+    // =================================================
+
+    const app = initializeApp(firebaseConfig);
+
+    const database = getDatabase(app);
+
+    const commandRef =
+        ref(database, "robot/command");
+
+
+    // =================================================
+    // FIREBASE STATUS
+    // =================================================
+
+    const firebaseStatus =
+        document.getElementById("firebaseStatus");
+
+    onValue(
+        commandRef,
+        (snapshot) => {
+
+            firebaseStatus.innerText =
+                "Connected";
+
+            firebaseStatus.style.color =
+                "green";
+
+            const currentCommand =
+                snapshot.val();
+
+            if (currentCommand) {
+
+                document.getElementById("command")
+                    .innerText =
+                    currentCommand.toUpperCase();
+            }
+
+        },
+
+        (error) => {
+
+            console.error(error);
+
+            firebaseStatus.innerText =
+                "Error";
+
+            firebaseStatus.style.color =
+                "red";
+        }
+    );
+
+
+    // =================================================
+    // SEND COMMAND
+    // =================================================
+
+    window.sendCommand =
+        async function(command) {
+
+            try {
+
+                await set(
+                    commandRef,
+                    command
+                );
+
+                document.getElementById("command")
+                    .innerText =
+                    command.toUpperCase();
+
+                console.log(
+                    "Command sent:",
+                    command
+                );
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    "Firebase error:",
+                    error
+                );
+
+            }
+
+        };
+
+
+    // =================================================
+    // KEYBOARD CONTROL
+    // =================================================
+
+    document.addEventListener(
+        "keydown",
+        function(event) {
+
+            // Prevent repeated commands
+            if (event.repeat)
+                return;
+
+
+            switch(event.key.toLowerCase()) {
+
+                case "w":
+                case "arrowup":
+
+                    sendCommand("forward");
+
+                    break;
+
+
+                case "s":
+                case "arrowdown":
+
+                    sendCommand("backward");
+
+                    break;
+
+
+                case "a":
+                case "arrowleft":
+
+                    sendCommand("left");
+
+                    break;
+
+
+                case "d":
+                case "arrowright":
+
+                    sendCommand("right");
+
+                    break;
+
+
+                case " ":
+
+                    sendCommand("stop");
+
+                    break;
+            }
+
+        }
+    );
+
+
+    // =================================================
+    // STATIC ESP32-CAM IP
+    // =================================================
+
+    const ESP32_IP =
+        "192.168.1.50";
+
+
+    // =================================================
+    // CAMERA
+    // =================================================
+
+    const camera =
+        document.getElementById("camera");
+
+    const cameraStatus =
+        document.getElementById("cameraStatus");
+
+
+    function updateCamera() {
+
+        camera.src =
+            "http://" +
+            ESP32_IP +
+            "/capture?t=" +
+            Date.now();
+
+    }
+
+
+    camera.onload =
+        function() {
+
+            cameraStatus.innerText =
+                "Camera connected";
+
+            cameraStatus.style.color =
+                "green";
+        };
+
+
+    camera.onerror =
+        function() {
+
+            cameraStatus.innerText =
+                "Camera unavailable";
+
+            cameraStatus.style.color =
+                "red";
+        };
+
+
+    // Refresh camera every 500 ms
+
+    setInterval(
+        updateCamera,
+        500
+    );
+
+
+    // First camera request
+
+    updateCamera();
+
+</script>
+
+</body>
+</html>
